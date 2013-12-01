@@ -12,6 +12,9 @@ from sqlalchemy.orm.collections import InstrumentedList, MappedCollection
 from sqlalchemy.orm.dynamic import AppenderMixin
 from sqlalchemy.orm.query import Query
 
+from sqlalchemy.ext.orderinglist import OrderingList
+from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
+
 from dictalchemy import constants
 from dictalchemy import errors
 
@@ -21,8 +24,11 @@ def get_relation_keys(model):
 
     :returns: List of RelationProperties
     """
-    return [k.key for k in model.__mapper__.iterate_properties if
+    keys = [k.key for k in model.__mapper__.iterate_properties if
             isinstance(k, RelationshipProperty)]
+    keys.extend([key for key, descriptor in model.__mapper__.all_orm_descriptors.items() if 
+                isinstance(descriptor, AssociationProxy)])
+    return keys
 
 
 def get_column_keys(model):
@@ -131,7 +137,7 @@ def asdict(model, exclude=None, exclude_underscore=None, exclude_pk=None,
         rel = getattr(model, k)
         if hasattr(rel, 'asdict'):
             data.update({k: rel.asdict(**args)})
-        elif isinstance(rel, InstrumentedList):
+        elif isinstance(rel, (InstrumentedList, OrderingList, _AssociationList)):
             children = []
             for child in rel:
                 if hasattr(child, 'asdict'):
